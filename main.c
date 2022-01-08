@@ -17,6 +17,8 @@
 
 #define QUEUE_DEPTH 1
 #define BLOCK_SZ    1024
+const char * file_path = "./log.txt";
+int fd = -1;
 
 /* This is x86 specific */
 #define read_barrier()  __asm__ __volatile__("":::"memory")
@@ -167,14 +169,14 @@ off_t get_file_size(int fd) {
         perror("fstat");
         return -1;
     }
-    if (S_ISBLK(st.st_mode)) {
+    if (S_ISBLK(st.st_mode)) { // S_ISBLK
         unsigned long long bytes;
         if (ioctl(fd, BLKGETSIZE64, &bytes) != 0) {
             perror("ioctl");
             return -1;
         }
         return bytes;
-    } else if (S_ISREG(st.st_mode))
+    } else if (S_ISREG(st.st_mode)) // 是否是一个普通文件
         return st.st_size;
 
     return -1;
@@ -202,6 +204,19 @@ int app_setup_uring(struct submitter *s) {
      * */
     memset(&p, 0, sizeof(p));
     s->ring_fd = io_uring_setup(QUEUE_DEPTH, &p);
+
+    char buf[4096];
+
+    int j =0;
+    j =sprintf(buf,  "io_uring_setup: %d\n", s->ring_fd);
+    j+= sprintf(buf+j, "io_uring_params, sq , entries is : %d\n", p.sq_entries);
+    j+= sprintf(buf+j, "io_uring_params, cq , entries is : %d\n", p.cq_entries); // cq 数目 是 sq 的两倍
+    j+= sprintf(buf+j, "io_uring_params, sq , sq_thread_cpu is : %d\n", p.sq_thread_cpu);
+    j+= sprintf(buf+j, "io_uring_params, sq , sq_thread_idle is : %d\n", p.sq_thread_idle);
+    j+= sprintf(buf+j, "io_uring_params, flags : %d\n", p.flags);
+    j+= sprintf(buf+j, "io_uring_params, feature: %d\n", p.features);
+    j+= sprintf(buf+j, "------------------------------------------------------");
+    write(fd, buf, j);
     if (s->ring_fd < 0) {
         perror("io_uring_setup");
         return 1;
@@ -214,8 +229,25 @@ int app_setup_uring(struct submitter *s) {
      * has an indirection array in between. We map that in as well.
      * */
 
-    int sring_sz = p.sq_off.array + p.sq_entries * sizeof(unsigned);
-    int cring_sz = p.cq_off.cqes + p.cq_entries * sizeof(struct io_uring_cqe);
+    char buf1[4096];
+    int j1 =0;
+    j1 =sprintf(buf1,  "io_uring_setup: %d\n", s->ring_fd);
+    j1+= sprintf(buf1+j1, "io_uring_params, p.sq_off.head is : %d\n", p.sq_off.head);
+    j1+= sprintf(buf1+j1, "io_uring_params, p.sq_off.tail is : %d\n", p.sq_off.tail);
+    j1+= sprintf(buf1+j1, "io_uring_params, p.sq_off.array is : %d\n", p.sq_off.array);
+    j1+= sprintf(buf1+j1, "io_uring_params, p.cq_off.cqes is : %d\n", p.cq_off.cqes);
+    j1+= sprintf(buf1+j1, "------------------------------------------------------\n");
+    write(fd, buf1, j1);
+
+    int sring_sz = p.sq_off.array + p.sq_entries * sizeof(unsigned); // SQ Array 是指向 SQ Entry 的指针数组， 从赋值看出 array mapp 映射的最后一个区域 
+    int cring_sz = p.cq_off.cqes + p.cq_entries * sizeof(struct io_uring_cqe); // CQ 中只有 cq的数据结构所以大小依靠 cq_entries * io_uring_cqe 加上 cq_off.cqes的偏移量
+
+    char buf2[4096];
+    int j2 =0;
+    j2 =sprintf(buf2,  "sring_sz: %d\n", sring_sz);
+    j2+= sprintf(buf2+j2, "cring_sz: %d\n", cring_sz);
+    j2+= sprintf(buf2+j2, "------------------------------------------------------\n");
+    write(fd, buf2, j2);
 
     /* In kernel version 5.4 and above, it is possible to map the submission and 
      * completion buffers with a single mmap() call. Rather than check for kernel 
@@ -235,8 +267,14 @@ int app_setup_uring(struct submitter *s) {
      * Older kernels only map in the submission queue, though.
      * */
     sq_ptr = mmap(0, sring_sz, PROT_READ | PROT_WRITE, 
-            MAP_SHARED | MAP_POPULATE,
-            s->ring_fd, IORING_OFF_SQ_RING);
+            MAP_SHARED /*与其它所有映射这个对象的进程共享映射空间。对共享区的写入，相当于输出到文件。
+                            直到msync()或者munmap()被调用，文件实际上不会被更新。*/
+             | MAP_POPULATE /*
+                为文件映射通过预读的方式准备好页表。随后对映射区的访问不会被页违例阻塞。
+                v. （大批人或动物）居住于，生活于；充满，出现于（某地方，领域）；迁移，殖民于；（给文件）增添数据，输入数据
+             */ ,
+
+            s->ring_fd, IORING_OFF_SQ_RING /*被映射文件内容的起点， 针对 提交队列*/);
     if (sq_ptr == MAP_FAILED) {
         perror("mmap");
         return 1;
@@ -354,7 +392,7 @@ int submit_to_sq(char *file_path, struct submitter *s) {
     struct app_io_sq_ring *sring = &s->sq_ring;
     unsigned index = 0, current_block = 0, tail = 0, next_tail = 0;
 
-    off_t file_sz = get_file_size(file_fd);
+    off_t file_sz = get_file_size(file_fd); // 获取文件大小
     if (file_sz < 0)
         return 1;
     off_t bytes_remaining = file_sz;
@@ -403,7 +441,7 @@ int submit_to_sq(char *file_path, struct submitter *s) {
     sqe->opcode = IORING_OP_READV;
     sqe->addr = (unsigned long) fi->iovecs;
     sqe->len = blocks;
-    sqe->off = 0;
+    sqe->off = 0; /* offset into file */
     sqe->user_data = (unsigned long long) fi;
     sring->array[index] = index;
     tail = next_tail;
@@ -444,6 +482,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     memset(s, 0, sizeof(*s));
+
+    fd = open(file_path, O_APPEND | O_CREAT | O_WRONLY, 0644);
 
     if(app_setup_uring(s)) {
         fprintf(stderr, "Unable to setup uring!\n");
