@@ -5,7 +5,8 @@
         "stat.h": "c",
         "stdio.h": "c",
         "syscall.h": "c",
-        "ioctl.h": "c"
+        "ioctl.h": "c",
+        "fs.h": "c"
     },
 
     "cmake.debugConfig": {
