@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "io_uring.h": "c"
+        "io_uring.h": "c",
+        "mman.h": "c"
     }
 }
