@@ -5,7 +5,6 @@
 #include <sys/ioctl.h>
 #include <liburing.h>
 #include <stdlib.h>
-
 #define QUEUE_DEPTH 1
 #define BLOCK_SZ    1024
 
@@ -96,7 +95,7 @@ int submit_read_request(char *file_path, struct io_uring *ring) {
                                           (sizeof(struct iovec) * blocks));
 
     /*
-     * For each block of the file we need to read, we allocate an iovec struct
+     *io_uring_wait_cqe For each block of the file we need to read, we allocate an iovec struct
      * which is indexed into the iovecs array. This array is passed in as part
      * of the submission. If you don't understand this, then you need to look
      * up how the readv() and writev() system calls work.

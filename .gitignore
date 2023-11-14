@@ -1,1 +1,8 @@
 build
+.cache
+Debug/**
+tags
+.vscode/**
+*.out
+.vscode/**.json
+**.log
