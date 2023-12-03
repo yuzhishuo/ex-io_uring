@@ -65,6 +65,9 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "list": "cpp",
-        "bitset": "cpp"
+        "bitset": "cpp",
+        "instance.h": "c",
+        "emiter.hpp": "c",
+        "bufferproxy.hpp": "c"
     }
 }

@@ -8,12 +8,23 @@ include_directories(./include)
 aux_source_directory(./src DIR_SRCS)
 add_definitions (-D_GNU_SOURCE)
 
-add_library(y SHARED Emiter.cpp  Socket.cpp BufferProxy.cpp Notify.cpp InetAddress.cpp SocketsOps.cpp Buffer.cpp )
+add_library(y SHARED 
+    Emiter.cpp
+    Socket.cpp
+    BufferProxy.cpp
+    Notify.cpp
+    InetAddress.cpp
+    SocketsOps.cpp
+    Buffer.cpp
+    ConnectAdaptHandle.cpp
+    Connector.cpp
+    Dispatcher.cpp
+    )
 
 target_link_libraries(y uring tcmalloc unifex pthread)
 
-add_executable(libserver ${DIR_SRCS} main2.cc )
-target_link_libraries(libserver y)
+# add_executable(libserver ${DIR_SRCS} main2.cc )
+# target_link_libraries(libserver y)
 
 add_executable(libclient main1.cc )
 target_link_libraries(libclient y)

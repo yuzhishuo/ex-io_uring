@@ -10,27 +10,30 @@
 #include <map>
 #include <memory>
 #include <system_error>
+
+#include "Connector.hpp"
+#include "ConntectorChannel.hpp"
+
 namespace ye {
 
-class Acceptor /*: public IListenAble*/ {
-public:
-  Acceptor(Emiter *Emiter, ye::InetAddress addr) : fd_{0}, addr_{addr} {
-    std::error_code ec;
-    fd_ = Socket::createSocket<Socket::Proto::kTcp>(ec);
-    Socket::bindSocket(fd_, addr_, ec);
-    Socket::listenSocket(fd_, 10, ec);
-    spdlog::info("listen in ip:{}, port:{}, result:{}", addr_.toIp(),
-                 addr_.port(), ec.message());
-  }
+class Acceptor /*: public IListenAble*/
+{
 
-  using connector_type = Connector *;
-  int fd() const &noexcept { return fd_; }
-  connector_type createConnector(int fd) { return new Connector(fd); }
+public:
+  Acceptor(Emiter *emiter, std::string_view ip, u_int16_t port,
+           bool multishot = true);
+  /* int res -> return value */
+
+  void setError(std::function<void(std::error_code)> fun) &noexcept;
+  void setConnect(std::function<void(Channel<Connector> conn)>) &noexcept;
+  ~Acceptor();
 
 private:
-  int fd_;
-  ye::InetAddress addr_;
+  InetAddress addr_;
+  IChannel *acceptor_; // unique
+  std::map<int, Channel<Connector>> connectors_;
+  std::function<void(Channel<Connector> conn)> on_connect_;
+  std::function<void(std::error_code ec)> on_connect_error_ =
+      [](std::error_code ec) {};
 };
-
-static_assert(AcceptorConcept<Acceptor>);
 }; // namespace ye

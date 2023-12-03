@@ -25,7 +25,8 @@ uint8_t *BufferProxy::allocate(size_t length) {
       auto it = range.first;
       auto buffer = it->second;
       uint64_t index = *(reinterpret_cast<uint64_t *>(buffer) - 1);
-      auto res = in_use_buffers_.insert(std::make_pair(index, buffer));
+      auto res =
+          in_use_buffers_.insert(std::make_pair(index, (uint8_t *)buffer));
       assert(res.second);
       return res.first->second;
     }
@@ -50,20 +51,20 @@ uint8_t *BufferProxy::allocate(size_t length) {
 
   in_use_buffers_.emplace_hint(
       in_use_buffers_.end(), current_index_++,
-      reinterpret_cast<Buffer::inner_buffer *>(buffer_space));
-  Emiter_->registerBuffer(
-      reinterpret_cast<Buffer::inner_buffer *>(buffer_space));
+      reinterpret_cast<uint8_t *>(buffer_space));
+  // Emiter_->registerBuffer(
+  //     reinterpret_cast<Buffer::inner_buffer *>(buffer_space));
 
   return buffer_space;
 }
 
-void BufferProxy::dallocate(Buffer::inner_buffer *buffer) {
+void BufferProxy::dallocate(uint8_t *buffer) {
 
-  uint64_t index = *(reinterpret_cast<uint64_t *>(buffer) - 1);
-  if (buffer->size() != kInitialSize) {
-    un_use_cutom_buffers.insert(std::make_pair(index, buffer));
-  }
-  un_use_buffers_.insert(std::make_pair(index, buffer));
+  // uint64_t index = *(reinterpret_cast<uint64_t *>(buffer) - 1);
+  // if (buffer->size() != kInitialSize) {
+  //   un_use_cutom_buffers.insert(std::make_pair(index, buffer));
+  // }
+  // un_use_buffers_.insert(std::make_pair(index, buffer));
 }
 
 BufferProxy::~BufferProxy() {
@@ -87,7 +88,7 @@ void BufferProxy::inject(IChannel *channel, Buffer &&buffer) {
   auto buf = new Buffer(std::move(buffer));
   delay_write_[fd].push_front(buf);
   // TODO: register writer
-  instance<Emiter>()->writeBuffer(channel, {buf});
+  // instance<Emiter>()->writeBuffer(channel, {buf});
 }
 
 void BufferProxy::trigger(IChannel *channel) {
@@ -102,7 +103,7 @@ void BufferProxy::trigger(IChannel *channel) {
   }
   std::vector<Buffer *> bufs;
   write_list.foreach ([&](auto buf) { bufs.push_back(buf); });
-  instance<Emiter>()->writeBuffer(channel, std::move(bufs));
+  // instance<Emiter>()->writeBuffer(channel, std::move(bufs));
 }
 
 void BufferProxy::warnup(IChannel *channel) {

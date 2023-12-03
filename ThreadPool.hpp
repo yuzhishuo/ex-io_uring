@@ -23,10 +23,12 @@ public:
           std::unique_lock lck(mtx_);
           pthread_setname_np(pthread_self(),
                              std::format("thread_pool_{}", i).data());
+
+          auto &emit = *emts_.emplace_back(std::make_unique<Emiter>());
           cond = 1;
           cv_.notify_all();
+          emit.start();
         }
-        emts_.emplace_back(std::make_unique<Emiter>())->start();
       });
       std::unique_lock lck(mtx_);
       cv_.wait(lck, [&cond]() { return cond == 1; });
@@ -38,7 +40,7 @@ public:
 private:
   size_t getNextThread() {
     auto ret = next_thread_;
-    next_thread_ = (next_thread_ + 1) % thread_nums_;
+    next_thread_ = ((next_thread_ + 1) % thread_nums_);
     return ret;
   }
 

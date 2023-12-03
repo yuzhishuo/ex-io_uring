@@ -1,15 +1,24 @@
 #pragma once
 #include "IChannelAdapter.hpp"
+#include "IListenAble.hpp"
+#include <functional>
+#include <memory>
 
 namespace ye {
-class Connector {
+
+class Connector : public IListenAble {
 public:
-  explicit Connector(int fd) : fd_{fd} {}
-  explicit Connector(IChannel *channel, int fd) : Connector{fd} {}
-  inline int fd() const &noexcept { return fd_; }
+  explicit Connector(int fd);
+
+  virtual int fd() const &noexcept { return fd_; }
+
+  inline auto setClose(std::function<void()> fun) noexcept {
+    on_close_ = std::move(fun);
+  }
 
 private:
   int fd_;
-  IChannel *channel_;
+  std::shared_ptr<IChannel> channel_;
+  std::function<void()> on_close_;
 };
 } // namespace ye

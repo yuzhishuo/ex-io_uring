@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Dispatcher.hpp"
 #include "Emiter.hpp"
 #include "IChannelAdapter.hpp"
 #include "Notify.hpp"
@@ -9,7 +10,7 @@ namespace ye {
 template <> class Channel<Notify> : public IChannel {
 public:
   Channel(Emiter *emiter) : IChannel{ChannelType::Event}, notify_{false} {
-    emiter->registerChannel(this);
+    emiter->dispatch().registerChannel(this);
   }
 
   int fd() const &noexcept override { return notify_.fd(); };

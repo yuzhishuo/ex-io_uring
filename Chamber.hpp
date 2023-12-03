@@ -5,11 +5,13 @@
 #include "Concept.hpp"
 #include "Connector.hpp"
 #include "ConntectorChannel.hpp"
+#include "Dispatcher.hpp"
 #include "Emiter.hpp"
 #include "IChannelAdapter.hpp"
 #include "NofityChannel.hpp"
 #include <liburing.h>
 #include <unistd.h>
+
 namespace ye {
 
 enum class cb {
@@ -19,7 +21,7 @@ enum class cb {
 template <typename T> auto Chamber(T &t) -> void;
 
 template <> inline auto Chamber(Channel<Acceptor> &channel) -> void {
-  instance<Emiter>()->registerChannel(&channel);
+  instance<Emiter>()->dispatch().registerChannel(&channel);
 }
 
 inline auto Chamber(Channel<Connector> &channel, Buffer &&buf) -> void {
