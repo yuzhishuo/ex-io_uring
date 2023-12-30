@@ -20,14 +20,16 @@ public:
       int cond = 0;
       trds_.emplace_back([this, i, &cond]() {
         {
-          std::unique_lock lck(mtx_);
-          pthread_setname_np(pthread_self(),
-                             std::format("thread_pool_{}", i).data());
-
-          auto &emit = *emts_.emplace_back(std::make_unique<Emiter>());
-          cond = 1;
+          Emiter *emit = nullptr;
+          {
+            std::unique_lock lck(mtx_);
+            pthread_setname_np(pthread_self(),
+                               std::format("thread_pool_{}", i).data());
+            emit = &(*emts_.emplace_back(std::make_unique<Emiter>()));
+            cond = 1;
+          }
           cv_.notify_all();
-          emit.start();
+          emit->start();
         }
       });
       std::unique_lock lck(mtx_);

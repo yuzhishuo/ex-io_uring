@@ -15,8 +15,10 @@ enum class Proto : int {
 };
 
 // FIXME: ADD NOBLOCK && BINDEVICE func
-template <Proto type> int createSocket(std::error_code &ec) noexcept {
-  int sock = ::socket(AF_INET, static_cast<int>(type), 0);
+template <Proto type>
+int createSocket(bool noblock, std::error_code &ec) noexcept {
+  int sock = ::socket(
+      AF_INET, static_cast<int>(type) | (noblock ? SOCK_NONBLOCK : 0), 0);
   if (sock == -1) {
     ec = std::make_error_code(static_cast<std::errc>(errno));
   } else {
@@ -26,17 +28,17 @@ template <Proto type> int createSocket(std::error_code &ec) noexcept {
   return sock;
 }
 
-template <Proto type> int createSocket() {
+template <Proto type> int createSocket(bool noblock) {
 
   std::error_code ec;
-  if (auto sock = createSocket<type>(ec); !ec) {
+  if (auto sock = createSocket<type>(noblock, ec); !ec) {
     return sock;
   }
 
   throw std::system_error(ec);
 }
 
-void bindSocket(int sock, InetAddress addr, std::error_code &ec);
+void bindSocket(int sock, const InetAddress& addr, std::error_code &ec);
 
 void listenSocket(int sock, int bk, std::error_code &ec) noexcept;
 

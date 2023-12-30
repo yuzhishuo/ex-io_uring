@@ -1,6 +1,7 @@
 #pragma once
 #include "IChannelAdapter.hpp"
 #include "IListenAble.hpp"
+#include "InetAddress.hpp"
 #include <functional>
 #include <memory>
 
@@ -18,6 +19,7 @@ public:
 
 private:
   int fd_;
+  InetAddress ta_;
   std::shared_ptr<IChannel> channel_;
   std::function<void()> on_close_;
 };

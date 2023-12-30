@@ -1,24 +1,33 @@
 #pragma once
+#include "Buffer.hpp"
 #include "IListenAble.hpp"
+#include "IntrusiveList.hpp"
+#include "yendian.hpp"
 #include <algorithm>
+#include <array>
 #include <assert.h>
+#include <concepts>
 #include <cstring>
 #include <deque>
 #include <exception>
 #include <execution>
 #include <functional>
 #include <gperftools/tcmalloc.h>
+#include <initializer_list>
 #include <iterator>
 #include <liburing.h>
+#include <list>
 #include <map>
+#include <string_view>
 #include <system_error>
-#include <thread>
-#include <vector>
+#include <type_traits>
+
 namespace ye {
+
 // FIXME: BUFFER SIZE is n * blockSize
 // FIXME: Embedding list struct
-static const size_t kCheapPrepend = 8;
-static const size_t kInitialSize = 1024;
+static const size_t kCheapPrepend = 0;
+static constexpr size_t kInitialSize = 1024;
 /// A buffer class modeled after org.jboss.netty.buffer.ChannelBuffer
 ///
 /// @code
@@ -29,30 +38,42 @@ static const size_t kInitialSize = 1024;
 /// |                   |                  |                  |
 /// 0      <=      readerIndex   <=   writerIndex    <=     size
 /// @endcode
+
 class Buffer {
+
 public:
-  explicit Buffer(size_t initialSize = kInitialSize)
-      : buffer_(kCheapPrepend + initialSize), readerIndex_(kCheapPrepend),
-        writerIndex_(kCheapPrepend) {
-    assert(readableBytes() == 0);
-    assert(writableBytes() == initialSize);
-    assert(prependableBytes() == kCheapPrepend);
-  }
+  struct inner_buffer {
+    inner_buffer *next;
+    inner_buffer *prev;
+    char *buf;
+    size_t len;
+    char *begin() const { return buf; };
+    char *end() const { return buf + len; }
+    size_t size() const { return len; }
+    char *data() const { return buf; }
+  };
+
+public:
+  // write model
+  explicit Buffer(size_t initialSize = kInitialSize);
+  // read model
+  explicit Buffer(std::initializer_list<Buffer::inner_buffer *> buffers);
 
   // implicit copy-ctor, move-ctor, dtor and assignment are fine
   // NOTE: implicit move-ctor is added in g++ 4.6
 
-  void swap(Buffer &rhs) {
-    buffer_.swap(rhs.buffer_);
-    std::swap(readerIndex_, rhs.readerIndex_);
-    std::swap(writerIndex_, rhs.writerIndex_);
-  }
-  auto size() const { return buffer_.size(); }
-  auto data() const { return buffer_.data(); }
+  // void swap(Buffer &rhs) {
+  //   std::swap(data_, rhs.data_);
+  //   std::swap(readerIndex_, rhs.readerIndex_);
+  //   std::swap(writerIndex_, rhs.writerIndex_);
+  // }
+
+  auto size() const { return len_; }
+  auto data() const { return buf_; }
 
   size_t readableBytes() const { return writerIndex_ - readerIndex_; }
 
-  size_t writableBytes() const { return buffer_.size() - writerIndex_; }
+  size_t writableBytes() const { return size() - writerIndex_; }
 
   size_t prependableBytes() const { return readerIndex_; }
 
@@ -115,10 +136,7 @@ public:
     writerIndex_ = kCheapPrepend;
   }
 
-  //  void append(const StringPiece& str)
-  // {
-  //  append(str.data(), str.size());
-  //}
+  void append(const std::string_view str) { append(str.data(), str.size()); }
 
   void append(const char * /*restrict*/ data, size_t len) {
     ensureWritableBytes(len);
@@ -155,21 +173,21 @@ public:
   /// Append int64_t using network endian
   ///
   void appendInt64(int64_t x) {
-    //  int64_t be64 = sockets::hostToNetwork64(x);
-    // append(&be64, sizeof be64);
+    int64_t be64 = endian::host2network(x);
+    append(&be64, sizeof be64);
   }
 
   ///
   /// Append int32_t using network endian
   ///
   void appendInt32(int32_t x) {
-    //    int32_t be32 = sockets::hostToNetwork32(x);
-    //    append(&be32, sizeof be32);
+    int32_t be32 = endian::host2network(x);
+    append(&be32, sizeof be32);
   }
 
   void appendInt16(int16_t x) {
-    //    int16_t be16 = sockets::hostToNetwork16(x);
-    //   append(&be16, sizeof be16);
+    int16_t be16 = endian::host2network(x);
+    append(&be16, sizeof be16);
   }
 
   void appendInt8(int8_t x) { append(&x, sizeof x); }
@@ -213,8 +231,8 @@ public:
   int64_t peekInt64() const {
     assert(readableBytes() >= sizeof(int64_t));
     int64_t be64 = 0;
-    //    ::memcpy(&be64, peek(), sizeof be64);
-    //   return sockets::networkToHost64(be64);
+    ::memcpy(&be64, peek(), sizeof be64);
+    return endian::network2host(be64);
     return 0;
   }
 
@@ -225,16 +243,16 @@ public:
   int32_t peekInt32() const {
     assert(readableBytes() >= sizeof(int32_t));
     int32_t be32 = 0;
-    //   ::memcpy(&be32, peek(), sizeof be32);
-    //  return sockets::networkToHost32(be32);
+    ::memcpy(&be32, peek(), sizeof be32);
+    return endian::network2host(be32);
     return 0;
   }
 
   int16_t peekInt16() const {
     assert(readableBytes() >= sizeof(int16_t));
     int16_t be16 = 0;
-    //  ::memcpy(&be16, peek(), sizeof be16);
-    //  return sockets::networkToHost16(be16);
+    ::memcpy(&be16, peek(), sizeof be16);
+    return endian::network2host(be16);
     return 0;
   }
 
@@ -248,21 +266,21 @@ public:
   /// Prepend int64_t using network endian
   ///
   void prependInt64(int64_t x) {
-    // int64_t be64 = sockets::hostToNetwork64(x);
-    // prepend(&be64, sizeof be64);
+    int64_t be64 = endian::host2network(x);
+    prepend(&be64, sizeof be64);
   }
 
   ///
   /// Prepend int32_t using network endian
   ///
   void prependInt32(int32_t x) {
-    // int32_t be32 = sockets::hostToNetwork32(x);
-    // prepend(&be32, sizeof be32);
+    int32_t be32 = endian::host2network(x);
+    prepend(&be32, sizeof be32);
   }
 
   void prependInt16(int16_t x) {
-    // int16_t be16 = sockets::hostToNetwork16(x);
-    // prepend(&be16, sizeof be16);
+    int16_t be16 = endian::host2network(x);
+    prepend(&be16, sizeof be16);
   }
 
   void prependInt8(int8_t x) { prepend(&x, sizeof x); }
@@ -274,49 +292,44 @@ public:
     std::copy(d, d + len, begin() + readerIndex_);
   }
 
-  void shrink(size_t reserve) {
-    // FIXME: use vector::shrink_to_fit() in C++ 11 if possible.
-    Buffer other;
-    other.ensureWritableBytes(readableBytes() + reserve);
-    // other.append(toStringPiece());
-    swap(other);
-  }
+  size_t internalCapacity() const { return size(); }
 
-  size_t internalCapacity() const { return buffer_.capacity(); }
-
-  /// Read data directly into buffer.
-  ///
-  /// It may implement with readv(2)
-  /// @return result of read(2), @c errno is saved
-  ssize_t readFd(int fd, int *savedErrno);
+  void makeSpace(size_t len) {}
 
 private:
-  char *begin() { return &*buffer_.begin(); }
-
-  const char *begin() const { return &*buffer_.begin(); }
-
-  void makeSpace(size_t len) {
-    if (writableBytes() + prependableBytes() < len + kCheapPrepend) {
-      // FIXME: move readable data
-      buffer_.resize(writerIndex_ + len);
-    } else {
-      // move readable data to the front, make space inside buffer
-      assert(kCheapPrepend < readerIndex_);
-      size_t readable = readableBytes();
-      std::copy(begin() + readerIndex_, begin() + writerIndex_,
-                begin() + kCheapPrepend);
-      readerIndex_ = kCheapPrepend;
-      writerIndex_ = readerIndex_ + readable;
-      assert(readable == readableBytes());
-    }
-  }
+  char *begin() const { return buf_; };
+  char *end() const { return buf_ + len_; }
 
 private:
-  std::vector<char> buffer_;
-  size_t readerIndex_;
+  // IntrusiveList<inner_buffer, &inner_buffer::next, &inner_buffer::prev>
+  //     data_list_;
+  char *buf_;
   size_t writerIndex_;
+  size_t len_;
+  size_t readerIndex_;
+
+  Buffer *next;
+  Buffer *perv;
 
   static const char kCRLF[];
+  friend IntrusiveList<Buffer, &Buffer::next, &Buffer::perv>;
+
+private:
+  void __static_assert() {
+    static_assert(offsetof(iovec, iov_base) == offsetof(Buffer, buf_) and
+                  offsetof(iovec, iov_len) == offsetof(Buffer, writerIndex_) and
+                  sizeof(iovec::iov_base) == sizeof(Buffer::buf_) and
+                  sizeof(iovec::iov_len) == sizeof(Buffer::writerIndex_));
+  }
+
+public:
+  using BufferList = IntrusiveList<Buffer, &Buffer::next, &Buffer::perv>;
 };
+static_assert(std::is_standard_layout_v<Buffer> and
+              // std::is_trivially_copy_assignable_v<Buffer> and
+              // std::is_trivially_copyable_v<Buffer> and
+              // std::is_trivially_move_constructible_v<Buffer> and
+              // std::is_trivially_destructible_v<Buffer> and
+              not std::has_virtual_destructor_v<Buffer>);
 
 } // namespace ye

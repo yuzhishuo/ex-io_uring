@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Accept.hpp"
 #include "BufferProxy.hpp"
 #include "Connector.hpp"
 #include "Emiter.hpp"
@@ -20,14 +19,9 @@
 #include <system_error>
 #include <utility>
 
-namespace ye {
+#include "Common.hpp"
 
-enum class ConnectStatus {
-  NOTCONNECT,
-  CONNECTTING,
-  CONNECTTED,
-  CONNECTFAIL,
-};
+namespace ye {
 
 template <>
 class Channel<Connector>

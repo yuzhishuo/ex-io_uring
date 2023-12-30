@@ -9,15 +9,28 @@
 #include <type_traits>
 
 namespace ye {
-template <typename T>
-concept HandleReadEvent = requires(T t, IListenAble &listener) {
-  { t.handleReadEvent(listener) } -> std::same_as<void>;
+
+enum MetaType {
+
+  TCPACCEPT,
+  TCPCONNECT
+};
+
+template <MetaType type_> struct Meta {
+  constexpr MetaType type() { return type_; }
 };
 
 template <typename T>
+concept HandleReadEvent = requires(T t, IListenAble &listener) {
+                            {
+                              t.handleReadEvent(listener)
+                              } -> std::same_as<void>;
+                          };
+
+template <typename T>
 concept HandleWriteEvent = requires(T t) {
-  { t.handleWriteEvent() } -> std::same_as<void>;
-};
+                             { t.handleWriteEvent() } -> std::same_as<void>;
+                           };
 
 template <typename T>
 concept HalfDuplexConcept = HandleReadEvent<T>;
@@ -31,37 +44,34 @@ concept SharedPtrConcept =
 
 template <typename T>
 concept ListenAbleConcept = requires(T t) {
-  { t.fd() } -> std::same_as<int>;
-}
-or std::is_base_of_v<IListenAble, T>;
+                              { t.fd() } -> std::same_as<int>;
+                            } or std::is_base_of_v<IListenAble, T>;
 
 template <typename T>
 concept ChannelConcept = std::is_base_of_v<IChannel, T>;
 
 template <typename T>
-concept AcceptorConcept = requires(T t, int fd) {
-  std::is_pointer_v<decltype(t.createConnector(fd))>;
-};
+concept AcceptorConcept = std::is_base_of_v<Meta<MetaType::TCPACCEPT>, T>;
 
 template <typename T>
-concept ConnectAdaptConcept = requires(T t) {
-  {t.connect(InetAddress{"", 0})};
-};
+concept ConnectAdaptConcept = std::is_base_of_v<Meta<MetaType::TCPCONNECT>, T>;
 
 /*and FullDuplexConcept<
     typename std::remove_pointer<typename T::connector_type>::type>
     and ListenAbleConcept<T>;*/
 
-class Handle {};
 namespace {
-[[maybe_unused]] extern struct : public Handle { int a_; } t;
+[[maybe_unused]] extern struct : public Meta<MetaType::TCPACCEPT> {
+  int a_;
+} t;
 static_assert(sizeof t == sizeof t.a_); // no EBO
 static_assert(std::is_standard_layout_v<decltype(t)>, "warn");
 }; // namespace
 
-template <typename T>
+template <typename T, MetaType type>
 concept HandleConcept =
-    std::is_base_of_v<Handle, T> and std::is_standard_layout_v<
+    std::is_base_of_v<Meta<type>, T> and
+    std::is_standard_layout_v<
         T> /* and ListenAbleConcept<T> and std::is_trivial_v<T>*/;
 
 template <typename T>

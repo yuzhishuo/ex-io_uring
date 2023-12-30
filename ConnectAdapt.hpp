@@ -6,8 +6,12 @@
 #include "IChannelAdapter.hpp"
 #include "InetAddress.hpp"
 #include "Socket.hpp"
+#include <cstdlib>
 #include <map>
+#include <spdlog/spdlog.h>
 #include <string_view>
+#include <system_error>
+#include <utility>
 
 namespace ye {
 class ConnectAdaptHandle;
@@ -18,28 +22,22 @@ public:
   inline auto getInetAddress() const { return addr_; }
   int fd() const &noexcept { return -1; }
 
-  inline void handleReadFinish(int fd, Buffer *, std::error_code ec) noexcept {
-    if (ec) {
-      if (ec == std::errc::operation_in_progress) {
-        // emiter_->writeable(this, fd);
-        return;
-      }
-      spdlog::warn("[ConnectAdapt] connect fail");
-      // auto erase_num = connectors_.erase(fd);
-      // assert(erase_num > 0);
-    }
-    // auto new_connect_node = connectors_.extract(fd);
-    if (on_new_connect_) {
-      // auto ret = connectors_.insert(std::move(new_connect_node));
-      // on_new_connect_(ret.position->second);
-      on_new_connect_(createConnector(fd));
-    } else {
-      using Socket::Close;
-      if (on_close_)
-        on_close_(getInetAddress(), fd);
-    }
-  };
+  inline virtual void readable(Buffer &data) {
+    auto fd = data.readInt32();
+    fd > 0 ? on_new_connect_(fd) : on_connect_fail_(-fd);
+  }
 
+  inline virtual void errorable(std::error_code ec) { std::unreachable(); }
+
+  inline void setNewConnect(std::function<void(int)> fun) {
+    if (fun)
+      on_new_connect_ = fun;
+  }
+
+  inline void setConnectFail(std::function<void(int)> fun) {
+    if (fun)
+      on_connect_fail_ = fun;
+  }
   using connector_type = Connector *;
   connector_type createConnector(int fd) { return new Connector(fd); }
 
@@ -47,11 +45,12 @@ private:
 private:
   Emiter *emiter_;
   InetAddress addr_;
-  std::function<void(Channel<Connector> F, Buffer &&)> on_read_;
-  std::function<void(std::error_code)> on_error_;
-  std::function<void(InetAddress, int)> on_close_;
-  std::function<void(Connector *)> on_new_connect_;
-  std::function<void(int res)> on_write_finish_;
+  std::function<void(int)> on_new_connect_ = [](auto) {
+    spdlog::warn("default connect success fun triger");
+  };
+  std::function<void(int)> on_connect_fail_ = [](auto) {
+    spdlog::warn("default connect fail fun triger");
+  };
 };
 
 // static_assert(ConnectAdaptConcept<Channel<ConnectAdaptHandle>>);

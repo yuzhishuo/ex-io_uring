@@ -1,24 +1,15 @@
 #pragma once
 
 #include "BufferProxy.hpp"
-#include "Concept.hpp"
 
 #include "IChannelAdapter.hpp"
-#include <assert.h>
-#include <bitset>
 #include <functional>
 #include <gperftools/tcmalloc.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <mutex>
 #include <spdlog/spdlog.h>
-#include <stdexcept>
-#include <string.h>
 #include <sys/poll.h>
-#include <thread>
-#include <type_traits>
-#include <utility>
-#include <variant>
 #include <vector>
 
 namespace ye {

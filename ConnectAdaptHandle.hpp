@@ -3,12 +3,10 @@
 #include "Concept.hpp"
 #include "ConnectAdapt.hpp"
 #include "Connector.hpp"
-#include "ConntectorChannel.hpp"
 
 #include "Emiter.hpp"
-#include "IChannelAdapter.hpp"
 #include "InetAddress.hpp"
-#include "Socket.hpp"
+#include "yedefine.hpp"
 #include <map>
 #include <memory>
 #include <string_view>
@@ -17,16 +15,16 @@ namespace ye {
 
 // class ConnectAdaptHandle;
 // template <> class Channel<ConnectAdaptHandle>;
-struct ConnectAdaptHandle : public Handle {
+struct ConnectAdaptHandle : public Meta<MetaType::TCPCONNECT> {
 
 public:
   ConnectAdaptHandle(Emiter *emiter, std::string_view ip, uint16_t port = 0);
-  inline void connect(std::string_view ip, uint16_t port = 0)
+  inline y_return_code connect(std::string_view ip, uint16_t port = 0)
       __attribute__((always_inline)) {
-    connect(InetAddress{ip, port});
+    return connect(InetAddress{ip, port});
   }
 
-  void connect(const InetAddress& addr);
+  y_return_code connect(const InetAddress &addr);
 
   inline void setNewConnect(std::function<void(Connector &)> func)
       __attribute__((always_inline)) {
@@ -42,10 +40,9 @@ public:
 
 private:
   // Timer   // TODO: support connect timeout ?
-
   Emiter *emiter_;
+  InetAddress sa_;
   std::unique_ptr<Channel<ConnectAdaptHandle>> adaptor_;
-  // TODO: remove connectors_ && new_connectors_
   std::map<int, Connector *> connectors_;
   std::map<int, Connector *> new_connectors_;
   std::function<void(Connector &)> on_new_connect_;

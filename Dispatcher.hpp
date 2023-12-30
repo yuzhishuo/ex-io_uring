@@ -1,6 +1,8 @@
 #pragma once
 #include "Emiter.hpp"
+#include <cassert>
 #include <condition_variable>
+#include <cstdint>
 #include <error.h>
 #include <liburing.h>
 #include <mutex>
@@ -9,7 +11,27 @@
 #include <string.h>
 #include <sys/poll.h>
 
+#include "Concept.hpp"
+#include "IChannelAdapter.hpp"
+
 namespace ye {
+
+enum packaged_task_type {
+  TASK_TYPE_CONNECT,
+};
+typedef struct packaged_task {
+  int task_id;
+  int task_type;
+  void *data;
+} packaged_task_t;
+
+enum class tag : int { IN, OUT };
+struct ChannelDataWapper {
+  IChannel *channel;
+  std::variant<uintptr_t, int, tag> data;
+  intptr_t ud;
+  int wapper_type;
+};
 
 class Dispatcher {
 private:
@@ -37,26 +59,43 @@ public:
   }
 
   template <ListenAbleConcept T> inline void registerChannel(T *t) {
-    assert(instance<Emiter>() == emiter_);
+
+    if (emiter_ != instance<Emiter>()) {
+
+    retry:
+      emiter_->runAt([=, this]() { registerChannel(t); });
+      return;
+    }
+    bool allocated_sqe = false;
     auto fd = t->fd();
+  correction:
     auto sqe = io_uring_get_sqe(&ring_);
     if (!sqe) // FIXME: 如果申请不出来了是不是应该 将其 挂载 runable 等 sqe
               // 唤醒了再去 申请加入
     {
-      auto f = io_uring_sq_space_left(&ring_);
-      perror("fsdf");
-      spdlog::error("[Emiter] get submit sqe obj fail, left space is {}", f);
+      if (io_uring_sq_ready(&ring_) > 0 && allocated_sqe == false) {
+        io_uring_submit(&ring_);
+        allocated_sqe = true;
+        goto correction;
+      }
+      goto retry;
+
+      spdlog::error("[Emiter] get submit sqe obj fail");
       return;
     }
-    io_uring_sqe_set_data(sqe, NULL);
+    auto wapper = new ChannelDataWapper{
+        .channel = t,
+    };
+    io_uring_sqe_set_data(sqe, wapper);
     io_uring_prep_poll_add(sqe, fd, POLLIN);
-    auto f = io_uring_submit(&ring_);
+    auto f = io_uring_submit(&ring_); // 线程最后一起提交？
     spdlog::info("{}", f);
   }
 
   template <ConnectAdaptConcept T>
-  inline void registerChannel(T *t, int fd, InetAddress addr) {
+  inline void registerChannel(Channel<T> *t, int fd, const InetAddress &addr) {
 
+    spdlog::info("register connect channel, ta: {}", addr.toIpPort());
     if (emiter_ != instance<Emiter>()) {
       emiter_->runAt([=, this]() { registerChannel(t, fd, addr); });
       return;
@@ -70,22 +109,34 @@ public:
       spdlog::error("[Emiter] get submit sqe obj fail");
       return;
     }
-    io_uring_prep_connect(sqe, fd, addr.getSockAddr(), sizeof(sockaddr));
-    io_uring_sqe_set_data(sqe, NULL);
+    auto wapper = new ChannelDataWapper{
+        .channel = t,
+        .ud = fd,
+    };
+
+    io_uring_prep_connect(sqe, fd, addr.getSockAddr(), sizeof(struct sockaddr));
+    // io_uring_prep_connect(sqe, fd, (struct sockaddr*)&server_address,
+    // sizeof(struct sockaddr));
+
+    io_uring_sqe_set_data(sqe, wapper);
     auto ret = io_uring_submit(&ring_);
   }
 
   template <AcceptorConcept T>
   inline void registerChannel(Channel<T> *t, bool multishot = true,
                               bool fixed = false) {
+
+    assert(t->isAccpetable());
     auto sqe = io_uring_get_sqe(&ring_);
     if (!sqe)
       spdlog::error("[Emiter]"
                     "get submit sqe obj fail");
     io_uring_prep_accept(sqe, t->fd(), (struct sockaddr *)nullptr, nullptr,
                          SOCK_NONBLOCK);
-
-    io_uring_sqe_set_data(sqe, NULL);
+    auto wapper = new ChannelDataWapper{
+        .channel = t,
+    };
+    io_uring_sqe_set_data(sqe, wapper);
     auto ret = io_uring_submit(&ring_);
     spdlog::info("[Emiter] register channel fd:{} ret:{}", t->fd(), ret);
   }

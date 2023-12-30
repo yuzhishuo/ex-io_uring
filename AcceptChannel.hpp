@@ -1,53 +1,35 @@
 #pragma once
 
-#include "Accept.hpp"
-#include "Emiter.hpp"
-#include "IChannelAdapter.hpp"
-#include "IListenAble.hpp"
-#include "InetAddress.hpp"
-#include "Timer.hpp"
-#include <concepts>
-#include <format>
-#include <functional>
-#include <memory>
-#include <optional>
+#include "Connector.hpp"
+#include "Dispatcher.hpp"
 #include <spdlog/spdlog.h>
-#include <stdexcept>
-#include <system_error>
-#include <utility>
 
 namespace ye {
-
-template <> class Channel<Acceptor> : public IChannel {
+class AcceptAdaptHandle;
+template <> class Channel<AcceptAdaptHandle> : public IChannel {
 public:
-  Channel(Emiter *emiter, const ye::InetAddress &addr)
-      : IChannel(ChannelType::ListenSocket), fd_{0}, emiter_{emiter} {
-    std::error_code ec;
-    fd_ = Socket::createSocket<Socket::Proto::kTcp>(ec);
-    Socket::bindSocket(fd_, addr, ec);
-    Socket::listenSocket(fd_, 10, ec);
-    spdlog::info("listen in ip:{}, port:{}, result:{}", addr.toIp(),
-                 addr.port(), ec.message());
-  }
+  Channel(Emiter *emiter, const ye::InetAddress &addr);
 
-  void handleReadFinish(int fd, Buffer *buffer, std::error_code ec) noexcept {
+  inline virtual void readable(Buffer &data) {
 
-    // swappe the Buffer class for when lifetime over it could be reuse in
-    // Buffer Proxy
-    if (ec && on_connect_error_) [[unlikely]] {
-      on_connect_error_(ec);
-      return;
-    }
+    auto socket_fd = data.readInt32();
 
     if (on_connect_) [[likely]] {
-      on_connect_(createConnector(fd));
+      on_connect_(socket_fd);
     } else {
       spdlog::warn("[connect]"
                    "connect function donot set");
     }
   }
 
-  void setConnect(std::function<void(Connector *)> fun) &noexcept {
+  inline virtual void errorable(const std::error_code &ec) {
+    if (ec && on_connect_error_) [[unlikely]] {
+      on_connect_error_(ec);
+      return;
+    }
+  }
+
+  void setConnect(std::function<void(int)> fun) &noexcept {
     if (on_connect_) {
       spdlog::warn("connect"
                    "alealy set the connect callback");
@@ -58,7 +40,6 @@ public:
 
   int fd() const &noexcept { return fd_; }
 
-private:
   using connector_type = Connector *;
   connector_type createConnector(int fd) { return new Connector(fd); }
 
@@ -66,7 +47,7 @@ private:
   int fd_;
   Emiter *emiter_;
 
-  std::function<void(Connector *conn)> on_connect_;
+  std::function<void(int)> on_connect_;
   std::function<void(std::error_code ec)> on_connect_error_ =
       [](std::error_code ec) {};
 };

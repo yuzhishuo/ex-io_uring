@@ -34,7 +34,7 @@ template <> Emiter *instance() {
 Emiter::Emiter()
     : is_quit_{false}, notify_(nullptr),
       dispatch_(std::make_unique<Dispatcher>(this)) {
-  struct io_uring_params params;
+  struct io_uring_params params; 
   memset(&params, 0, sizeof(params));
   auto RING_LENGTH = 39;
   if (io_uring_queue_init_params(RING_LENGTH, &ring_, &params) < 0) {
@@ -79,7 +79,7 @@ bool Emiter::isNormalStatus() const &noexcept {
   return this == instance<Emiter>();
 }
 void Emiter::runAt(std::function<void()> fun) {
-  if (not isNormalStatus()) {
+  if (isNormalStatus()) {
     fun();
     return;
   }

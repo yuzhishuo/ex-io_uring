@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <fcntl.h>
 #include <iostream>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -12,7 +13,7 @@
 #include <unistd.h>
 namespace ye::Socket {
 
-void bindSocket(int sock, InetAddress addr, std::error_code &ec) {
+void bindSocket(int sock, const InetAddress& addr, std::error_code &ec) {
   if (::bind(sock, addr.getSockAddr(), sizeof(addr)) == -1) {
     ec = std::make_error_code(static_cast<std::errc>(errno));
   } else {
@@ -80,6 +81,15 @@ void setSocket(int sock, int option) {
   setSocket(sock, option, ec);
   if (ec) {
     throw std::system_error(ec);
+  }
+}
+
+void setNoBlock(int sock) {
+
+  auto on = fcntl(sock, F_GETFL);
+  on = (on | O_NONBLOCK);
+  if (fcntl(sock, F_SETFL, on) < 0) {
+    perror("turning NONBLOCKING on failed\n");
   }
 }
 
