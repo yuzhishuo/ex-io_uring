@@ -1,8 +1,10 @@
 #include "Dispatcher.hpp"
+#include "AcceptAdaptHandle.hpp"
 #include "Buffer.hpp"
 #include "BufferProxy.hpp"
 #include "Chamber.hpp"
 #include "Channel.hpp"
+#include "Common.hpp"
 #include "ConnectAdapt.hpp"
 #include "Connector.hpp"
 #include "Dispatcher.hpp"
@@ -10,11 +12,8 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
-#include <ios>
 #include <spdlog/spdlog.h>
 #include <system_error>
-
-#include "Common.hpp"
 
 namespace ye {
 
@@ -104,7 +103,7 @@ void Dispatcher::once() {
             registerChannel(channel);
             break;
           } else {
-          
+
             connect_adapt_channel->errorable(
                 std::error_code(errno, std::system_category()));
             break;
@@ -140,7 +139,7 @@ void Dispatcher::once() {
     }
 
     io_uring_cq_advance(&ring_, i);
-
+    io_uring_submit(&ring_);
     // emiter_->runAt(std::bind(&Dispatcher::once, this));
   }
 }

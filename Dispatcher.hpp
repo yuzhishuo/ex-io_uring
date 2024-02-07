@@ -1,4 +1,5 @@
 #pragma once
+#include "Buffer.hpp"
 #include "Emiter.hpp"
 #include <cassert>
 #include <condition_variable>
@@ -9,6 +10,8 @@
 #include <spdlog/spdlog.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string_view>
+#include <strings.h>
 #include <sys/poll.h>
 
 #include "Concept.hpp"
@@ -25,12 +28,11 @@ typedef struct packaged_task {
   void *data;
 } packaged_task_t;
 
-enum class tag : int { IN, OUT };
+enum class tag : int { IN = 0, OUT = 1, OUT_FIN = OUT << 1 };
 struct ChannelDataWapper {
   IChannel *channel;
   std::variant<uintptr_t, int, tag> data;
   intptr_t ud;
-  int wapper_type;
 };
 
 class Dispatcher {
@@ -54,7 +56,6 @@ public:
               strerror(-ret));
       return;
     }
-
     // emiter_->runAt(std::bind(&Dispatcher::_once, this));
   }
 
@@ -147,6 +148,26 @@ public:
     io_uring_prep_writev(sqe, connector->fd(),
                          reinterpret_cast<struct iovec *>(buffers.data()),
                          buffers.size(), 0);
+    io_uring_sqe_set_data(sqe, NULL);
+    auto f = io_uring_submit(&ring_);
+  }
+
+  inline auto inject(IChannel *channel, std::string_view str) {
+    assert(channel->type() == ChannelType::Connect);
+    auto sqe = io_uring_get_sqe(&ring_);
+    io_uring_prep_send(sqe, channel->fd(), str.data(), str.length(), 0);
+    io_uring_sqe_set_data(sqe, NULL);
+    auto f = io_uring_submit(&ring_);
+  }
+
+  inline auto inject(IChannel *channel, std::span<char> str) {
+    assert(channel->type() == ChannelType::Connect);
+    auto sqe = io_uring_get_sqe(&ring_);
+    io_uring_prep_send(sqe, channel->fd(), str.data(), str.size(), 0);
+    auto wapper = new ChannelDataWapper{
+        .channel = channel,
+        .data = tag::OUT,
+    };
     io_uring_sqe_set_data(sqe, NULL);
     auto f = io_uring_submit(&ring_);
   }

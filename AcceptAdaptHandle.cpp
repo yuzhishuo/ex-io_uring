@@ -1,5 +1,5 @@
-#include "AcceptChannel.hpp"
 #include "AcceptAdaptHandle.hpp"
+#include "AcceptChannel.hpp"
 
 namespace ye {
 AcceptAdaptHandle::AcceptAdaptHandle(Emiter *emiter, std::string_view ip,
@@ -9,6 +9,11 @@ AcceptAdaptHandle::AcceptAdaptHandle(Emiter *emiter, std::string_view ip,
   accept_channel_->setConnect([this](int fd) { __on_connected(fd); });
 }
 void AcceptAdaptHandle::__on_connected(int fd) {
-  accept_channel_->createConnector(fd);
+  Connector *conn = accept_channel_->createConnector(fd);
+  if (!on_new_connected_) {
+    delete conn;
+    return;
+  }
+  on_new_connected_(conn);
 }
 } // namespace ye

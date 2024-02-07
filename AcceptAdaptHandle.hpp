@@ -11,12 +11,12 @@ public:
   AcceptAdaptHandle(Emiter *emiter, std::string_view ip, uint16_t port = 0);
 
 public:
-  void setOnNewConnected(std::function<void()> fun) {
+  void setOnNewConnected(std::function<void(Connector*)> fun) {
     if (fun)
       on_new_connected_ = fun;
   }
 
-  void setOnDissconnected(std::function<void()> fun) {
+  void setOnDissconnected(std::function<void(Connector*)> fun) {
     if (fun)
       on_new_connected_ = fun;
   }
@@ -26,8 +26,8 @@ private:
 
 private:
   std::unique_ptr<Channel<AcceptAdaptHandle>> accept_channel_;
-  std::function<void()> on_new_connected_;
-  std::function<void()> on_dissconnected_;
+  std::function<void(Connector*)> on_new_connected_;
+  std::function<void(Connector*)> on_dissconnected_;
 };
 
 } // namespace ye

@@ -9,6 +9,7 @@
 #include "RefCount.hpp"
 #include "Timer.hpp"
 
+#include <any>
 #include <concepts>
 #include <format>
 #include <functional>
@@ -22,7 +23,7 @@
 #include "Common.hpp"
 
 namespace ye {
-
+class Connector;
 template <>
 class Channel<Connector>
     : public IChannel, public std::enable_shared_from_this<Channel<Connector>> {
@@ -102,6 +103,7 @@ private:
   ConnectStatus connect_status_;
   bool listen_;
   Emiter *emiter_;
+  std::any ud_;
   bool connected_;
   std::function<void(Channel<Connector>, Buffer &&)> on_read_;
   std::function<void(std::error_code)> on_error_;

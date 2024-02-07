@@ -1,4 +1,5 @@
 #include "Connector.hpp"
+#include "Chamber.hpp"
 #include "ConntectorChannel.hpp"
 #include <netinet/in.h>
 #include <spdlog/spdlog.h>
@@ -21,4 +22,9 @@ Connector::Connector(int fd)
   // register conn
   channel_ = conn;
 }
+
+auto Connector::Chamber(Buffer &&buf) -> void {
+  ::ye::Chamber(channel_, std::move(buf));
+}
+
 } // namespace ye

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.hpp"
 #include "Concept.hpp"
 #include "ConnectAdapt.hpp"
 #include "Connector.hpp"
@@ -7,6 +8,7 @@
 #include "Emiter.hpp"
 #include "InetAddress.hpp"
 #include "yedefine.hpp"
+#include <functional>
 #include <map>
 #include <memory>
 #include <string_view>
@@ -32,6 +34,13 @@ public:
       on_new_connect_ = std::move(func);
   }
 
+  inline void setOnMessage(std::function<void(Buffer)> func)
+      __attribute__((always_inline)) {
+
+    if (func)
+      on_message_ = std::move(func);
+  }
+
   inline void setOnClose(std::function<void(InetAddress, int)> func)
       __attribute__((always_inline)) {
     if (func)
@@ -45,6 +54,7 @@ private:
   std::unique_ptr<Channel<ConnectAdaptHandle>> adaptor_;
   std::map<int, Connector *> connectors_;
   std::map<int, Connector *> new_connectors_;
+  std::function<void(Buffer)> on_message_;
   std::function<void(Connector &)> on_new_connect_;
   std::function<void(InetAddress, int)> on_close_;
 };
