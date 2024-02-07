@@ -4,7 +4,6 @@
 
 #include "IChannelAdapter.hpp"
 #include <functional>
-#include <gperftools/tcmalloc.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <mutex>

@@ -1,6 +1,5 @@
 #include <concepts>
 #include <cstdint>
-#include <gperftools/tcmalloc.h>
 #include <string>
 #include <type_traits>
 
@@ -20,7 +19,7 @@ concept PodConcept = std::is_standard_layout_v<T>;
 
 template <ClassConcept T, PodConcept Y, typename... Args>
 auto re_constory(Args &&...args) -> T * {
-  auto root_obj = reinterpret_cast<T *>(tc_malloc(sizeof(T) + sizeof(Y)));
+  auto root_obj = reinterpret_cast<T *>(malloc(sizeof(T) + sizeof(Y)));
   new (root_obj) T(args...);
   if constexpr (!std::is_default_constructible_v<T> or
                 std::is_trivially_default_constructible_v<T> or

@@ -12,7 +12,7 @@ ConnectAdaptHandle::ConnectAdaptHandle(Emiter *emiter, std::string_view ip,
     : emiter_{emiter}, sa_(ip, port) {
 
   adaptor_ =
-      std::make_unique<Channel<ConnectAdaptHandle>>(InetAddress{ip, port});
+      std::make_unique<Channel<ConnectAdaptHandle>>(sa_);
   adaptor_->setNewConnect([this](auto fd) {
     assert(connectors_.contains(fd));
     on_new_connect_(*connectors_.at(fd));
@@ -23,7 +23,7 @@ y_return_code ConnectAdaptHandle::connect(const InetAddress &addr) {
   using namespace Socket;
   std::error_code ec;
   auto fd = createSocket<Proto::kTcp>(true, ec);
-  // 2357438656
+
   bindSocket(fd, sa_, ec);
   if (ec) {
     spdlog::error("[ConnectAdaptHandle] create connect fail, {}", ec.message());

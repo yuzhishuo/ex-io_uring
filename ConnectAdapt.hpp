@@ -1,4 +1,5 @@
 #pragma once
+#include "Buffer.hpp"
 #include "Concept.hpp"
 #include "Connector.hpp"
 #include "ConntectorChannel.hpp"
@@ -8,12 +9,24 @@
 #include "Socket.hpp"
 #include <cstdlib>
 #include <map>
+#include <optional>
 #include <spdlog/spdlog.h>
 #include <string_view>
 #include <system_error>
 #include <utility>
 
 namespace ye {
+
+class StreamHandle {
+
+
+
+
+private:
+std::optional<Buffer> recv_;
+std::optional<Buffer> send_;
+};
+
 class ConnectAdaptHandle;
 template <> class Channel<ConnectAdaptHandle> : public IChannel {
 public:
@@ -41,7 +54,6 @@ public:
   using connector_type = Connector *;
   connector_type createConnector(int fd) { return new Connector(fd); }
 
-private:
 private:
   Emiter *emiter_;
   InetAddress addr_;

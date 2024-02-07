@@ -158,7 +158,7 @@ int add_write_request(struct request *req) {
 }
 
 void _send_static_string_content(const char *str, int client_socket) {
-  struct request *req = zh_malloc(sizeof(*req) + sizeof(struct iovec));
+  struct request *req = (struct request*)zh_malloc(sizeof(*req) + sizeof(struct iovec));
   unsigned long slen = strlen(str);
   req->iovec_count = 1;
   req->client_socket = client_socket;

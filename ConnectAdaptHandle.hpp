@@ -15,8 +15,6 @@
 
 namespace ye {
 
-// class ConnectAdaptHandle;
-// template <> class Channel<ConnectAdaptHandle>;
 struct ConnectAdaptHandle : public Meta<MetaType::TCPCONNECT> {
 
 public:

@@ -7,7 +7,7 @@ project(liby VERSION 0.1.0)
 include_directories(./include)
 aux_source_directory(./src DIR_SRCS)
 add_definitions (-D_GNU_SOURCE)
-
+add_definitions(-DFMT_HEADER_ONLY)
 add_library(y SHARED 
     Emiter.cpp
     Socket.cpp
@@ -24,7 +24,7 @@ add_library(y SHARED
     AcceptChannel.cpp
     )
 
-target_link_libraries(y uring tcmalloc unifex pthread)
+target_link_libraries(y uring  pthread)
 
 add_executable(libserver ${DIR_SRCS} main2.cc )
 target_link_libraries(libserver y)

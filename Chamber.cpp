@@ -1,12 +1,8 @@
 
 #include "Chamber.hpp"
-#include "Accept.hpp"
 #include "AcceptAdaptHandle.hpp"
 #include "AcceptChannel.hpp"
 #include "Buffer.hpp"
-#include "Concept.hpp"
-#include "Connector.hpp"
-#include "ConntectorChannel.hpp"
 #include "Dispatcher.hpp"
 #include "Emiter.hpp"
 #include "IChannelAdapter.hpp"

@@ -17,7 +17,7 @@ enum class ChannelType : uint8_t {
 };
 
 class Buffer;
-class IChannel : public IListenAble /* need impl the Listenable ??  */ {
+class IChannel : public IListenAble {
 
 public:
   constexpr explicit IChannel(ChannelType type = ChannelType::Unknow)
@@ -28,10 +28,6 @@ public:
   virtual ~IChannel() = default;
   inline virtual void readable(Buffer &data) {}
   inline virtual void errorable(const std::error_code &code) {}
-  // virtual void handleReadFinish(int, Buffer *, std::error_code) noexcept
-  // = 0; virtual void handleWriteFinish(int res) {
-  //   throw std::runtime_error("not implemented");
-  // }
   inline bool isAccpetable() const noexcept {
     return type_ == ChannelType::ListenSocket;
   }
